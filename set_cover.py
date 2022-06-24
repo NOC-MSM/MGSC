@@ -9,15 +9,38 @@ import numpy.random as random
 from numpy.random import default_rng
 
 def effective_coverage_rate(c, thresh, locs, landmask, coverage = 1):
+    """
+    Calculates the effective coverage rate (ECR) for a given correlation matrix
+    , observation locations and correlation threshold. IF a landmask is provided,
+    these points will first be taken out of the calculation.
     
+    INPUTS
+     c  (array)       :: NxN correlation matrix
+     thresh (float)   :: Correlation threshold to evaluate (0 - 1)
+     locs (array)     :: Vector of indexed observation locations (as output by greedy algorithm)
+     landmask (array) :: 2D landmask. 1 = Land
+     
+    OUTPUTS
+     ecr              :: Float value of ECR
+    """
+    
+    # Get threshold correlations
     c_thresh = c>thresh
+    
+    # Number of points
     n_pts = c_thresh.shape[0]
+    
+    # Correlation at locations above threshold
     c_locs = c_thresh[locs]
+    
+    # How many correlation points are > thresh
     ecr = np.sum(c_locs, axis=0)
     ecr_map_all = np.copy(ecr)
     ecr[ecr<coverage] = 0
     ecr[ecr>=coverage] = 1
     ecr_map = np.copy(ecr)
+    
+    # Calculate ECR after first subtracting land points
     ecr = (np.sum(ecr))/(n_pts - np.sum(landmask))
     
     return ecr, ecr_map, ecr_map_all
@@ -83,19 +106,29 @@ def set_cover_greedy_search(c, n_obs, search_start = 0.1, search_end = 1,
                             search_step = 0.1, max_it=np.inf, stop_crit=1, 
                             print_it=True, tolerance = 0, loc0=None, 
                             stop_alpha = 1e-5):
+    """
+    Performs the greedy algorithm multiple times until some threshold of a 
+    given 
+    """
     
+    # Declare searching switch and initial correlation search bounds
     searching=True
     c0 = search_start
     c1 = search_start
     
+    # Initialize output lists
     c_list = []
     n_pts_list = []
     exceeded_once = False
+    
+    # Start search
     while searching:
         c_list.append(c1)
         if print_it:
             print('Searching for c = {0}'.format(c1))
             print('({0}, {1})'.format(c0, c1))
+            
+        # Get subsets and do greedy algorithm for current correlations
         subsets = c>=c1
         loc, N = set_cover_greedy(subsets, print_it=False, loc0=loc0)#, 
                                   #max_it=n_obs + tolerance+1)
@@ -137,6 +170,19 @@ def set_cover_greedy_search(c, n_obs, search_start = 0.1, search_end = 1,
 def set_cover_greedy(subsets, max_it=np.inf, stop_crit=1, print_it=True, loc0=None):
     '''
     Basic greedy algorithm for set cover problem
+
+    INPUTS
+     subsets (array) :: List of boolean subsets, i.e. correlation > thresh
+     max_it  (int)   :: Maximum number of iterations to perform
+     stop_crit       :: Stop algorithm when difference between 
+                        subsequent correlations are below this value
+     print_it (bool) :: Whether or not to print current iteration number
+     loc0 (array)    :: List of initial locations that must be fixed.
+     
+    OUTPUTS
+     loc (array)     :: List of resulting locations. These are presented as
+                        1D indices of the flattened data.
+     N               :: Number of points within the associated subset for each loc[i]
 
     '''
     if print_it:
@@ -228,8 +274,12 @@ def set_cover_get_final_sets(subsets, loc):
     '''
     From set_cover output, get a boolean representation of the final sets
     Takes the form: (n_sets, n_universe)
+    
+    INPUTS
+     subsets (array) :: Same as input to set_cover_greedy()
+     loc (array)     :: Output from set_cover_greedy()
+    
     '''
-
     
     n_subsets = len(loc)
     n_pts = subsets.shape[1]
